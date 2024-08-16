@@ -1,0 +1,84 @@
+#include <DHT.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
+
+// Define sensor pins
+#define DHTPIN 2
+#define SOIL_MOISTURE_PIN A0
+#define LIGHT_SENSOR_PIN A1
+#define RELAY_PIN 7
+#define WATER_PUMP_PIN 8
+#define DHTTYPE DHT11
+#define SERVO_PIN 9
+
+DHT dht(DHTPIN, DHTTYPE);
+LiquidCrystal_I2C lcd(0x27, 16, 2); // Set the LCD I2C address and size (0x27 is a common address)
+Servo servo;
+
+void setup() {
+  Serial.begin(9600); // Initialize Serial Monitor
+  pinMode(SOIL_MOISTURE_PIN, INPUT);
+  pinMode(LIGHT_SENSOR_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(WATER_PUMP_PIN, OUTPUT);
+  servo.attach(SERVO_PIN);
+  lcd.init(); // Initialize the I2C LCD
+  lcd.backlight(); // Turn on the backlight
+  dht.begin();
+  servo.write(0); // Initial position of servo (vent closed)
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+  int soilMoisture = analogRead(SOIL_MOISTURE_PIN);
+  int lightLevel = analogRead(LIGHT_SENSOR_PIN);
+
+  // Debugging: Print readings to Serial Monitor
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println(" *C");
+  Serial.print("Humidity: ");
+  Serial.print(humidity);
+  Serial.println(" %");
+  Serial.print("Soil Moisture (Raw): ");
+  Serial.println(soilMoisture);
+  Serial.print("Light Level: ");
+  Serial.println(lightLevel);
+
+  // Display readings on LCD
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(temperature);
+  lcd.print(" C");
+  lcd.setCursor(0, 1);
+  lcd.print("Humidity: ");
+  lcd.print(humidity);
+  lcd.print(" %");
+
+  // Control logic for fan/heater and vent
+  if (temperature > 35) {
+    //digitalWrite(RELAY_PIN, HIGH); // Turn on fan/heater
+    servo.write(180); // Open vent
+    Serial.println("Fan/Heater ON, Vent OPEN");
+  } else {
+    //digitalWrite(RELAY_PIN, LOW); // Turn off fan/heater
+    servo.write(0); // Close vent
+    Serial.println("Fan/Heater OFF, Vent CLOSED");
+  }
+
+  // Control logic for water pump based on soil moisture
+  if (soilMoisture < 500) {  
+    digitalWrite(RELAY_PIN, HIGH);// Turn on water pump if soil moisture is below 300
+    digitalWrite(WATER_PUMP_PIN, HIGH);
+    Serial.println("Water Pump ON");
+  } else { 
+     digitalWrite(RELAY_PIN, LOW);  // Turn off water pump as soon as soil moisture reaches or exceeds 300
+    digitalWrite(WATER_PUMP_PIN, LOW);
+    Serial.println("Water Pump OFF");
+  }
+
+  delay(2000); // Wait for 2 seconds before the next loop
+}
